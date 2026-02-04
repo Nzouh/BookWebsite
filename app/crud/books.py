@@ -37,3 +37,12 @@ async def update_book(_id: str ,book_data:Book):
     result = await collection.update_one({"_id" : oid}, {"$set" : book})
 
     return result
+
+async def delete_book(_id: str):
+    try:
+        oid = ObjectID(_id)
+    except Exception:
+        raise ValueError("Must be a valid id format")
+    collection = database["books"]
+    result = await collection.delete_one({"_id" : oid})
+    return result
