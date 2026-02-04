@@ -46,3 +46,23 @@ async def delete_book(_id: str):
     collection = database["books"]
     result = await collection.delete_one({"_id" : oid})
     return result
+
+
+async def get_book(_id: str):
+
+    try:
+        oid = ObjectID(_id)
+    except Exception:
+        raise ValueError("Must be a valid id format")
+    collection = database["books"]
+    book = await collection.find_one({"_id" : oid})
+    return book
+
+async def list_books():
+    collection = database["books"]
+    books = []
+    async for book in collection.find():
+        book["_id"] = str(book["_id"])
+        books.append(book)
+    return books
+    
