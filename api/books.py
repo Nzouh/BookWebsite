@@ -1,16 +1,27 @@
 from fastapi import APIRouter, HTTPException, status
 from app.crud.books import create_book, update_book, delete_book, get_book, list_books
+from app.crud.authors import get_author_by_name, add_book_to_author
 from app.model.book import Book
 
 router = APIRouter(prefix="/books", tags=["Books"])
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-# Only an author should be able to add a book to his own name, and so maybe 
-# there should be a specific method available only to authors.
-# This function serves as a way for a book to be created in general
 async def add_book(book: Book):
+    # 1. Create the book
     book_id = await create_book(book)
-    return {"id": book_id, "status": "created"}
+    
+    # 2. Try to find the author by name
+    author = await get_author_by_name(book.author)
+    
+    status_msg = "created"
+    if author:
+        # 3. Link the book to the author's list
+        await add_book_to_author(author["_id"], book_id)
+        status_msg = "created and linked to author"
+    else:
+        status_msg = "created (author not found in database)"
+
+    return {"id": book_id, "status": status_msg}
 
 @router.get("/search")
 async def search_books(title: str):

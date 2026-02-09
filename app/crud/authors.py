@@ -76,3 +76,24 @@ async def update_author(_id: str, author_data: Author):
         raise ValueError("Author not found")
 
     return result
+
+async def get_author_by_name(name: str):
+    collection = database["authors"]
+    author = await collection.find_one({"name": name})
+    if author:
+        author["_id"] = str(author["_id"])
+    return author
+
+async def add_book_to_author(author_id: str, book_id: str):
+    try:
+        oid = ObjectId(author_id)
+    except Exception:
+        raise ValueError("Must be a valid id format")
+    
+    collection = database["authors"]
+    # $addToSet ensures we don't add the same book twice
+    result = await collection.update_one(
+        {"_id": oid},
+        {"$addToSet": {"book_list": book_id}}
+    )
+    return result
