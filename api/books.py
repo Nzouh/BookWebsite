@@ -5,6 +5,11 @@ from app.model.book import Book
 
 router = APIRouter(prefix="/books", tags=["Books"])
 
+@router.get("/")
+async def all_books():
+    result = await list_books()
+    return result
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def add_book(book: Book):
     # 1. Create the book
