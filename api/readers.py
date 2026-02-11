@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
+from app.model.readers import Reader 
 from app.crud.readers import (
     get_reader, 
     list_readers, 
@@ -7,7 +8,6 @@ from app.crud.readers import (
     update_reader,
     add_book_to_reader_list
 )
-from app.model.readers import Reader # Fixed back to plural 'readers'
 
 router = APIRouter(prefix="/readers", tags=["Readers"])
 

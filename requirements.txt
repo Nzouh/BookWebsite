@@ -3,3 +3,6 @@ uvicorn
 motor
 redis
 pydantic
+pyjwt
+passlib[bcrypt]
+python-multipart
