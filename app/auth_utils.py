@@ -1,4 +1,4 @@
-from warnings import deprecated
+
 from dotenv import load_dotenv
 import os
 from passlib.context import CryptContext
@@ -24,13 +24,13 @@ def verify_password(plain_password : str, hashed_password: str):
 #Now that we can hash and verify the password, let's create JWT tokens
 load_dotenv()
 
-SECRET_KEY = os.getenv(secret_key)
+SECRET_KEY = os.getenv("SECRET_KEY", "fallback-dev-key-change-in-production")
 
-ALGORITHM = "HS2H6"
+ALGORITHM = "HS256"
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-def create_access_tokens(data : dict) -> str:
+def create_access_token(data : dict) -> str:
     """
     Creates a JWT from a dictionary of data (called "claims").
     

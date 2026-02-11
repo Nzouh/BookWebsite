@@ -52,3 +52,27 @@ async def list_books():
         book["_id"] = str(book["_id"])
         books.append(book)
     return books
+
+async def list_books_alphabetical():
+    """Return all books sorted alphabetically by title."""
+    collection = database["books"]
+    books = []
+    async for book in collection.find().sort("title", 1):
+        book["_id"] = str(book["_id"])
+        books.append(book)
+    return books
+
+async def get_books_by_ids(book_ids: list[str]):
+    """Given a list of book ID strings, return the full book documents."""
+    collection = database["books"]
+    oids = []
+    for bid in book_ids:
+        try:
+            oids.append(ObjectId(bid))
+        except Exception:
+            continue
+    books = []
+    async for book in collection.find({"_id": {"$in": oids}}):
+        book["_id"] = str(book["_id"])
+        books.append(book)
+    return books

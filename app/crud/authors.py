@@ -97,3 +97,20 @@ async def add_book_to_author(author_id: str, book_id: str):
         {"$addToSet": {"book_list": book_id}}
     )
     return result
+
+async def get_author_by_user_id(user_id: str):
+    """Find the author profile linked to a specific user account."""
+    collection = database["authors"]
+    author = await collection.find_one({"user_id": user_id})
+    if author:
+        author["_id"] = str(author["_id"])
+    return author
+
+async def search_authors_by_name(name: str):
+    """Search for authors whose name contains the search term (case-insensitive)."""
+    collection = database["authors"]
+    authors = []
+    async for author in collection.find({"name": {"$regex": name, "$options": "i"}}):
+        author["_id"] = str(author["_id"])
+        authors.append(author)
+    return authors

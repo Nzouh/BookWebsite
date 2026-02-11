@@ -71,3 +71,11 @@ async def add_book_to_reader_list(reader_id: str, book_id: str, list_name: str):
         {"$addToSet": {list_name: book_id}}
     )
     return result
+
+async def get_reader_by_user_id(user_id: str):
+    """Find the reader profile linked to a specific user account."""
+    collection = database["readers"]
+    reader = await collection.find_one({"user_id": user_id})
+    if reader:
+        reader["_id"] = str(reader["_id"])
+    return reader
