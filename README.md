@@ -39,17 +39,26 @@
 
 This method pulls pre-built, production-ready images directly from our **GitHub Container Registry (GHCR)**.
 
-1. **Pull the latest images**:
+1. **Download the Docker Compose file**:
+   ```bash
+   # Create a directory for the project and enter it
+   mkdir book-website && cd book-website
+
+   # Download the compose file
+   curl -L https://raw.githubusercontent.com/Nzouh/BookWebsite/main/docker-compose.yml -o docker-compose.yml
+   ```
+
+2. **Pull the latest images**:
    ```bash
    docker compose pull
    ```
 
-2. **Start the application**:
+3. **Start the application**:
    ```bash
    docker compose up
    ```
 
-3. **Verify services**:
+4. **Verify services**:
    - **Frontend**: [http://localhost:3000](http://localhost:3000)
    - **Backend API**: [http://localhost:8000](http://localhost:8000)
 
