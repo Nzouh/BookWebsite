@@ -10,6 +10,7 @@ services:
       - bookstore-network
 
   backend:
+    image: ghcr.io/nzouh/bookwebsite-backend:main
     build: .
     container_name: book-backend
     ports:
@@ -23,12 +24,15 @@ services:
       - bookstore-network
 
   frontend:
+    image: ghcr.io/nzouh/bookwebsite-frontend:main
     build: ./frontend
     container_name: book-frontend
     ports:
       - "3000:3000"
     depends_on:
       - backend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     networks:
       - bookstore-network
 

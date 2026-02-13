@@ -32,7 +32,31 @@
 - **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** (Must be installed and running)
 - **Git**
 
-### Installation & Quick Start
+---
+
+### 🐳 Method 1: Just Run (Pulling Images)
+**Recommended for users who just want to run the website without looking at the code.**
+
+This method pulls pre-built, production-ready images directly from our **GitHub Container Registry (GHCR)**.
+
+1. **Pull the latest images**:
+   ```bash
+   docker compose pull
+   ```
+
+2. **Start the application**:
+   ```bash
+   docker compose up
+   ```
+
+3. **Verify services**:
+   - **Frontend**: [http://localhost:3000](http://localhost:3000)
+   - **Backend API**: [http://localhost:8000](http://localhost:8000)
+
+---
+
+### 💻 Method 2: Development (Building from Source)
+**Recommended for developers who want to modify the code or contribute.**
 
 1. **Clone the repository**:
    ```bash
@@ -40,22 +64,27 @@
    cd BookWebsite
    ```
 
-2. **Run the entire stack**:
+2. **Build and start**:
    ```bash
    docker compose up --build
    ```
-   This will spin up:
-   - **MongoDB** on `localhost:27017`
-   - **Backend API** on `localhost:8000`
-   - **Frontend App** on `localhost:3000`
 
 3. **Seed the database** (Optional):
    If you want to quickly populate the site with books:
    ```bash
-   # Make sure you have python installed locally for the script
    pip install -r requirements.txt
    python scripts/seed_books.py
    ```
+
+---
+
+## 🚢 Deployment & CI/CD
+
+This project uses **GitHub Actions** for continuous integration and deployment. 
+
+- **Automated Builds**: Every push to the `main` branch triggers a workflow that builds and pushes new Docker images to GHCR.
+- **Image Registry**: You can find all published images at [github.com/Nzouh/BookWebsite/pkgs](https://github.com/Nzouh/BookWebsite/pkgs).
+- **Testing**: A dedicated `docker-compose.test.yml` is available to simulate the production environment locally by pulling the latest images and running tests.
 
 ---
 
