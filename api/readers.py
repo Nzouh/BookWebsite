@@ -6,11 +6,21 @@ from app.crud.readers import (
     create_reader, 
     delete_reader, 
     update_reader,
-    add_book_to_reader_list
+    add_book_to_reader_list,
+    get_reader_by_user_id
 )
 from api.auth import get_current_user
 
 router = APIRouter(prefix="/readers", tags=["Readers"])
+
+@router.get("/me")
+async def get_my_reader_profile(current_user: dict = Depends(get_current_user)):
+    """Get the reader profile for the currently logged-in user."""
+    user_id = current_user["sub"]
+    reader = await get_reader_by_user_id(user_id)
+    if not reader:
+        raise HTTPException(status_code=404, detail="Reader Profile Not Found")
+    return reader
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def make_reader(reader: Reader, current_user: dict = Depends(get_current_user)):
