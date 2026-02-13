@@ -1,0 +1,30 @@
+services:
+  db:
+    image: mongo:latest
+    container_name: book-db-test
+    ports:
+      - "27018:27017" # Using a different port (27018) for the test
+    volumes:
+      - mongo_data_test:/data/db
+
+  backend:
+    image: ghcr.io/nzouh/bookwebsite-backend:main
+    container_name: book-backend-test
+    ports:
+      - "8001:8000" # Using port 8001 for the test
+    depends_on:
+      - db
+    environment:
+      - MONGO_URL=mongodb://db:27017
+      - CORS_ORIGINS=http://localhost:3001,http://localhost:3005
+
+  frontend:
+    image: ghcr.io/nzouh/bookwebsite-frontend:main
+    container_name: book-frontend-test
+    ports:
+      - "3001:3000" # The "Production" test will be on http://localhost:3001
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data_test:
