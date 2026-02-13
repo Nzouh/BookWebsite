@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { getAuthorBooks, getAuthor, Book, Author } from "@/lib/api";
 import BookGrid from "@/components/BookGrid";
 import BookCard from "@/components/BookCard";
 
-export default function AuthorProfilePage({ params }: { params: { id: string } }) {
-    const { id } = params;
+export default function AuthorProfilePage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
     const [author, setAuthor] = useState<Author | null>(null);
     const [books, setBooks] = useState<Book[]>([]);
     const [loading, setLoading] = useState(true);

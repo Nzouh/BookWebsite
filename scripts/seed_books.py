@@ -1,5 +1,8 @@
 import asyncio
 import requests
+import sys
+import os
+sys.path.append(os.getcwd())
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.model.book import Book, Chapter
 from app.model.author import Author

@@ -1,101 +1,101 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { getBook, Book, addBookToList, getMyReaderProfile } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
 
-export default function BookDetailPage({ params }: { params: { id: string } }) {
-    const { id } = params;
-    const { isAuthenticated } = useAuth();
-    const [book, setBook] = useState<Book | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [readerId, setReaderId] = useState<string | null>(null);
+export default function BookDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const { isAuthenticated } = useAuth();
+  const [book, setBook] = useState<Book | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [readerId, setReaderId] = useState<string | null>(null);
 
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                const bookData = await getBook(id);
-                setBook(bookData);
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const bookData = await getBook(id);
+        setBook(bookData);
 
-                if (isAuthenticated) {
-                    try {
-                        const profile = await getMyReaderProfile();
-                        setReaderId(profile._id);
-                    } catch (e) {
-                        console.error("Could not fetch reader ID", e);
-                    }
-                }
-            } catch (err) {
-                console.error("Failed to fetch book", err);
-            } finally {
-                setLoading(false);
-            }
+        if (isAuthenticated) {
+          try {
+            const profile = await getMyReaderProfile();
+            setReaderId(profile._id);
+          } catch (e) {
+            console.error("Could not fetch reader ID", e);
+          }
         }
-        fetchData();
-    }, [id, isAuthenticated]);
+      } catch (err) {
+        console.error("Failed to fetch book", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [id, isAuthenticated]);
 
-    const handleAddToList = async (listName: string) => {
-        if (!readerId) {
-            alert("Please log in to add to lists.");
-            return;
-        }
-        try {
-            await addBookToList(readerId, id, listName);
-            alert(`Added to ${listName}!`);
-        } catch (err) {
-            alert("Failed to add to list.");
-        }
-    };
+  const handleAddToList = async (listName: string) => {
+    if (!readerId) {
+      alert("Please log in to add to lists.");
+      return;
+    }
+    try {
+      await addBookToList(readerId, id, listName);
+      alert(`Added to ${listName}!`);
+    } catch (err) {
+      alert("Failed to add to list.");
+    }
+  };
 
-    if (loading) return <div>Loading book details...</div>;
-    if (!book) return <div>Book not found.</div>;
+  if (loading) return <div>Loading book details...</div>;
+  if (!book) return <div>Book not found.</div>;
 
-    return (
-        <div className="book-detail">
-            <div className="hero-section">
-                <div className="cover-wrapper">
-                    <img src={book.image || "https://placehold.co/300x450?text=Cover"} alt={book.title} />
-                </div>
-                <div className="info-wrapper">
-                    <h1 className="title">{book.title}</h1>
-                    <p className="author">by {book.author}</p>
-                    <p className="bio">{book.biography || "No description available."}</p>
+  return (
+    <div className="book-detail">
+      <div className="hero-section">
+        <div className="cover-wrapper">
+          <img src={book.image || "https://placehold.co/300x450?text=Cover"} alt={book.title} />
+        </div>
+        <div className="info-wrapper">
+          <h1 className="title">{book.title}</h1>
+          <p className="author">by {book.author}</p>
+          <p className="bio">{book.biography || "No description available."}</p>
 
-                    {isAuthenticated && (
-                        <div className="actions">
-                            <button onClick={() => handleAddToList("favorites")} className="btn btn-outline">♥ Favorites</button>
-                            <button onClick={() => handleAddToList("in_progress")} className="btn btn-outline">📖 Reading</button>
-                            <button onClick={() => handleAddToList("finished")} className="btn btn-outline">✓ Finished</button>
-                        </div>
-                    )}
-                </div>
+          {isAuthenticated && (
+            <div className="actions">
+              <button onClick={() => handleAddToList("favorites")} className="btn btn-outline">♥ Favorites</button>
+              <button onClick={() => handleAddToList("in_progress")} className="btn btn-outline">📖 Reading</button>
+              <button onClick={() => handleAddToList("finished")} className="btn btn-outline">✓ Finished</button>
             </div>
+          )}
+        </div>
+      </div>
 
-            <div className="chapters-section">
-                <h2>Chapters</h2>
-                {book.chapters && book.chapters.length > 0 ? (
-                    <ul className="chapter-list">
-                        {book.chapters.map((chapter) => (
-                            <li key={chapter.order} className="chapter-item">
-                                <span className="chapter-title">
-                                    {chapter.order}. {chapter.title}
-                                </span>
-                                <Link
-                                    href={`/books/${id}/read/${chapter.order}`}
-                                    className="btn btn-primary btn-sm"
-                                >
-                                    Read
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                ) : (
-                    <p>No chapters available yet.</p>
-                )}
-            </div>
+      <div className="chapters-section">
+        <h2>Chapters</h2>
+        {book.chapters && book.chapters.length > 0 ? (
+          <ul className="chapter-list">
+            {book.chapters.map((chapter) => (
+              <li key={chapter.order} className="chapter-item">
+                <span className="chapter-title">
+                  {chapter.order}. {chapter.title}
+                </span>
+                <Link
+                  href={`/books/${id}/read/${chapter.order}`}
+                  className="btn btn-primary btn-sm"
+                >
+                  Read
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No chapters available yet.</p>
+        )}
+      </div>
 
-            <style jsx>{`
+      <style jsx>{`
         .book-detail {
           padding-top: 2rem;
         }
@@ -166,6 +166,6 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
           display: inline-block;
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }
