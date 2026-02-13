@@ -9,6 +9,18 @@ from api.auth import get_current_user
 
 router = APIRouter(prefix="/authors", tags=["Authors"])
 
+@router.get("/me")
+async def get_my_author_profile(current_user: dict = Depends(get_current_user)):
+    """Get the author profile for the currently logged-in user."""
+    user_id = current_user["sub"]
+    if "author" not in current_user.get("roles", []):
+         raise HTTPException(status_code=403, detail="User is not an author")
+         
+    author = await get_author_by_user_id(user_id)
+    if not author:
+        raise HTTPException(status_code=404, detail="Author Profile Not Found")
+    return author
+
 @router.post("/")
 async def add_author(author: Author, current_user: dict = Depends(get_current_user)):
     author_id = await create_author(author)
