@@ -1,7 +1,7 @@
-// Use env variable or fallback to current host:8000 for remote deployment
+// Use env variable or fallback to current host:8013 for remote deployment
 const API_URL = typeof window !== 'undefined'
-    ? `${window.location.protocol}//${window.location.hostname}:8000`
-    : "http://localhost:8000";
+    ? `${window.location.protocol}//${window.location.hostname}:8013`
+    : "http://localhost:8013";
 
 // --- Types ---
 
