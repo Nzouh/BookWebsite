@@ -37,6 +37,30 @@ async def search_books(title: str):
         
     return {"books": searched_title, "result": "found successfully"}
 
+from app.services.annas_archive import find_books
+from app.crud.download_jobs import create_job
+from app.model.download_job import DownloadJob
+
+@router.get("/external-search")
+async def external_search_books(query: str):
+    """
+    Search books on Anna's Archive (external source).
+    """
+    if not query:
+        return {"books": []}
+        
+    results = await find_books(query)
+    return {"books": [b.to_dict() for b in results], "source": "Anna's Archive"}
+
+@router.post("/request-download/{md5}")
+async def request_book_download(md5: str, current_user: dict = Depends(get_current_user)):
+    """
+    Queue a book for download from Anna's Archive.
+    """
+    job = DownloadJob(book_hash=md5, user_id=current_user.get("sub"))
+    job_id = await create_job(job)
+    return {"job_id": job_id, "status": "queued"}
+
 from fastapi import Query
 
 @router.get("/batch")

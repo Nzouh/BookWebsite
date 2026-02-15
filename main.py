@@ -24,6 +24,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+from app.services.download_service import DownloadService
+
+# Initialize Download Service
+download_dir = os.getenv("DOWNLOAD_DIR", "downloads")
+secret_key = os.getenv("ANNAS_SECRET_KEY", "")
+download_service = DownloadService(download_dir, secret_key)
+
+@app.on_event("startup")
+async def startup_event():
+    await download_service.start_service()
+
 app.include_router(author_router)
 app.include_router(book_router)
 app.include_router(reader_router)

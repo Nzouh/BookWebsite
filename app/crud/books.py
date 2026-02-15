@@ -126,3 +126,25 @@ async def get_books_by_ids(book_ids: list[str]):
         book["_id"] = str(book["_id"])
         books.append(book)
     return books
+
+async def get_book_by_hash(book_hash: str):
+    collection = database["books"]
+    book = await collection.find_one({"md5": book_hash})
+    if book:
+        book["_id"] = str(book["_id"])
+    return book
+
+async def update_book_status(book_hash: str, status: str, error: str = ""):
+    collection = database["books"]
+    await collection.update_one(
+        {"md5": book_hash},
+        {"$set": {"status": status, "error_message": error}}
+    )
+
+async def delete_failed_books(cutoff_time: float):
+    collection = database["books"]
+    result = await collection.delete_many({
+        "status": "error",
+        "updated_at": {"$lt": cutoff_time}
+    })
+    return result.deleted_count
