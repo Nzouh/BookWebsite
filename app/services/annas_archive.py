@@ -138,8 +138,8 @@ def _extract_meta_information(meta: str) -> tuple[str, str, str]:
             fmt = part_clean
             continue
             
-        # Check for file sizes
-        if any(unit in upper for unit in ["MB", "KB", "GB", "B"]):
+        # Check for file sizes (check longer units first to avoid false positives)
+        if any(unit in upper for unit in ["MB", "KB", "GB"]):
             size = part_clean
             
     return language, fmt, size
@@ -371,7 +371,7 @@ class AnnasArchiveService:
                 part_upper = part.upper()
                 is_language = "[" in part and "]" in part
                 is_format = any(fmt in part_upper for fmt in ["PDF", "EPUB", "MOBI", "AZW3", "TXT", "DOC", "DOCX", "CBR", "CBZ", "DJVU", "FB2", "ZIP"])
-                is_size = any(unit in part_upper for unit in ["MB", "KB", "GB", "B"]) and any(c.isdigit() for c in part)
+                is_size = any(unit in part_upper for unit in ["MB", "KB", "GB"]) and any(c.isdigit() for c in part)
                 
                 if is_language or is_format or is_size:
                     meta_parts.append(part)
@@ -645,8 +645,9 @@ class AnnasArchiveService:
         
         # Common chapter patterns with named groups for better extraction
         # Each tuple: (pattern, prefix for title)
-        # Roman numeral pattern: only valid sequences (I, II, III, IV, V, VI, VII, VIII, IX, X, etc.)
-        roman_pattern = r'(?:M{0,3})(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})'
+        # Roman numeral pattern: valid sequences that must contain at least one character
+        # This pattern requires at least one Roman numeral character (I, V, X, L, C, D, or M)
+        roman_pattern = r'(?:M{1,3}|(?:CM|CD|D?C{1,3})|(?:XC|XL|L?X{1,3})|(?:IX|IV|V?I{1,3}))'
         chapter_patterns = [
             # Chapter with number or roman numeral
             (rf'^(?:Chapter|CHAPTER)\s+(\d+|{roman_pattern})[\s:.]+(.*)$', 'Chapter'),
@@ -657,8 +658,8 @@ class AnnasArchiveService:
             # Section with number
             (r'^(?:Section|SECTION)\s+(\d+)[\s:.]+(.*)$', 'Section'),
             (r'^(?:Section|SECTION)\s+(\d+)$', 'Section'),
-            # Numbered chapters like "1. Title"
-            (r'^(\d+)\.\s+([A-Z][A-Za-z].*)$', 'Chapter'),  # "1. Title" (title must start with capital letter)
+            # Numbered chapters like "1. Title" - title can be any text starting with capital
+            (r'^(\d+)\.\s+([A-Z].*)$', 'Chapter'),
         ]
         
         # Try to split by chapter markers
@@ -727,8 +728,6 @@ class AnnasArchiveService:
                 content=content.strip(),
                 order=0
             ))
-        
-        return chapters
         
         return chapters
 
