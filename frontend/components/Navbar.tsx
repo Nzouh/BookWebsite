@@ -36,6 +36,9 @@ export default function Navbar() {
         </form>
 
         <div className="nav-links">
+          <Link href="/books/external-search" className="nav-link">
+            External Search
+          </Link>
           {isAuthenticated ? (
             <>
               <span className="welcome-text">Hi, {user?.sub}</span>
@@ -115,6 +118,18 @@ export default function Navbar() {
           display: flex;
           gap: 1rem;
           align-items: center;
+        }
+        .nav-link {
+          color: var(--brown-700);
+          text-decoration: none;
+          font-weight: 500;
+          padding: 0.5rem 1rem;
+          border-radius: 6px;
+          transition: background-color 0.2s;
+        }
+        .nav-link:hover {
+          background-color: var(--brown-50);
+          color: var(--brown-900);
         }
         .welcome-text {
           font-weight: 500;

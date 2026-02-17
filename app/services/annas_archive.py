@@ -18,11 +18,12 @@ ANNAS_BOOK_DETAIL_ENDPOINT = f"{BASE_URL}/md5/{{}}"
 ANNAS_DOWNLOAD_ENDPOINT = f"{BASE_URL}/dyn/api/fast_download.json?md5={{}}&key={{}}"
 
 # Standard headers to avoid bot detection
+# NOTE: Do NOT include "Accept-Encoding: br" (Brotli) unless the 'brotli'
+# package is installed. httpx handles gzip/deflate natively.
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.5",
-    "Accept-Encoding": "gzip, deflate, br",
     "Connection": "keep-alive",
 }
 
@@ -161,12 +162,25 @@ def _clean_text(text: str) -> str:
     return clean
 
 
+def _clean_language(lang: str) -> str:
+    """Clean language field: remove emoji prefixes and normalize."""
+    if not lang:
+        return ""
+    # Remove common emoji prefixes (✅, 🗸, etc.)
+    clean = re.sub(r'^[\U00002700-\U000027BF\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F900-\U0001F9FF\U00002600-\U000026FF\U00002702-\U000027B0\u2705\u2611\u2714]+\s*', '', lang)
+    # Extract just "English [en]" pattern
+    m = re.match(r'([A-Za-z\s]+(?:\[[a-z]{2,3}\])?)', clean.strip())
+    if m:
+        return m.group(1).strip()
+    return clean.strip()
+
+
 def _find_parent_with_class(element, class_pattern: str, max_depth: int = 10):
     """Find parent element containing a specific class pattern."""
     current = element
     depth = 0
     while current and depth < max_depth:
-        class_attr = current.attributes.get("class", "") if hasattr(current, 'attributes') else ""
+        class_attr = (current.attributes.get("class", "") or "") if hasattr(current, 'attributes') else ""
         if class_attr and class_pattern in class_attr:
             return current
         current = current.parent
@@ -245,50 +259,112 @@ class AnnasArchiveService:
         book_list = []
         seen_hashes = set()
 
-        # Multiple selector strategies for robustness
-        # Strategy 1: Look for links containing /md5/
-        anchors = parser.css("a[href*='/md5/']")
-        
-        for a in anchors:
+        # Each result lives in a container div inside js-aarecord-list-outer.
+        # Structure per result:
+        #   <div class="flex pt-3 pb-3 border-b ...">
+        #     <a href="/md5/HASH">  ← cover image link (no visible text)
+        #     <div>                  ← info column
+        #       <a href="/md5/HASH"> ← title link (text-lg font-semibold)
+        #       <a href="/search?q=Author"> ← author link with icon-[mdi--user-edit]
+        #       <div class="text-gray-800 ..."> ← metadata: lang · fmt · size · ...
+        result_containers = parser.css(
+            "div.js-aarecord-list-outer > div.flex"
+        )
+
+        # Fallback: if the outer wrapper class changed, try the known inner pattern
+        if not result_containers:
+            result_containers = parser.css(
+                "div.flex.pt-3.pb-3.border-b"
+            )
+
+        for container in result_containers:
             if len(book_list) >= limit:
                 break
-                
-            href = a.attributes.get("href", "")
-            if not href or "/md5/" not in href:
+
+            # --- hash / URL ---
+            first_md5_link = container.css_first("a[href*='/md5/']")
+            if not first_md5_link:
                 continue
-            
-            # Extract hash from URL
+            href = first_md5_link.attributes.get("href", "")
             book_hash = href.split("/md5/")[-1].split("?")[0].split("#")[0]
             if not book_hash or book_hash in seen_hashes:
                 continue
             seen_hashes.add(book_hash)
 
-            # Find the container element
-            container = _find_parent_with_class(a, "flex")
-            if not container:
-                # Try parent directly
-                container = a.parent
-            
-            # Extract title
-            title = _clean_text(a.text(strip=True))
+            # --- title ---
+            # The title is in the *second* /md5/ anchor which carries visible text
+            title = ""
+            md5_links = container.css("a[href*='/md5/']")
+            for link in md5_links:
+                text = link.text(strip=True)
+                if text:
+                    title = _clean_text(text)
+                    break
+            # Fallback: title stored in data-content on fallback cover div
             if not title:
-                # Try alternative: look for title in container
-                title_elem = container.css_first("h3, .text-lg, .font-bold") if container else None
-                if title_elem:
-                    title = _clean_text(title_elem.text(strip=True))
-            
-            # Extract author
-            authors = self._extract_author_from_container(a, container)
-            
-            # Extract metadata
-            meta = self._extract_metadata_from_container(container)
+                fb = container.css_first("div.font-bold[data-content]")
+                if fb:
+                    title = fb.attributes.get("data-content", "")
+
+            # --- author ---
+            authors = ""
+            # Author link contains an icon span with class icon-[mdi--user-edit]
+            author_icon = container.css_first("span[class*='icon-[mdi--user-edit]']")
+            if author_icon and author_icon.parent:
+                author_link = author_icon.parent
+                authors = _clean_text(
+                    author_link.text(strip=True).replace("\U0001f464", "")
+                )
+            # Fallback: second data-content div (amber author name)
+            if not authors:
+                dcs = container.css("div[data-content]")
+                for dc in dcs:
+                    cls = dc.attributes.get("class", "")
+                    if "amber" in cls:
+                        authors = dc.attributes.get("data-content", "")
+                        break
+
+            # --- metadata (language · format · size) ---
+            meta = ""
+            meta_div = container.css_first(
+                "div.text-gray-800, div.text-sm.font-semibold"
+            )
+            if meta_div:
+                # Re-parse the meta div HTML to strip <script> tags
+                # without mutating the original tree
+                meta_copy = HTMLParser(meta_div.html)
+                for script in meta_copy.css("script"):
+                    script.decompose()
+                meta = meta_copy.text(strip=True)
+                # Strip trailing "Save" button text
+                if "Save" in meta:
+                    meta = meta.split("Save")[0].strip().rstrip("·").strip()
             language, fmt, size = _extract_meta_information(meta)
-            
-            # Extract cover image
-            cover_url, cover_data = self._extract_cover_from_container(container, base_url)
-            
+
+            # --- year ---
+            year = ""
+            year_match = re.search(r'\b(19|20)\d{2}\b', meta)
+            if year_match:
+                year = year_match.group()
+
+            # --- cover image ---
+            cover_url = ""
+            cover_data = ""
+            img = container.css_first("img")
+            if img:
+                # Try src first, then data-src (lazy-loaded images)
+                src = img.attributes.get("src", "")
+                if not src or src.startswith("data:"):
+                    src = img.attributes.get("data-src", "")
+                if src and not src.startswith("data:"):
+                    cover_url = (
+                        urllib.parse.urljoin(base_url, src)
+                        if not src.startswith("http")
+                        else src
+                    )
+
             book = Book(
-                language=language.strip("[]()· "),
+                language=_clean_language(language),
                 format=fmt.strip("[]()· "),
                 size=size.strip("[]()· "),
                 title=title,
@@ -296,7 +372,8 @@ class AnnasArchiveService:
                 url=urllib.parse.urljoin(base_url, href),
                 hash=book_hash,
                 cover_url=cover_url,
-                cover_data=cover_data
+                cover_data=cover_data,
+                year=year,
             )
             book_list.append(book)
 
@@ -496,7 +573,7 @@ class AnnasArchiveService:
         """Extract book description from detail page."""
         # Strategy 1: Look for description in labeled sections
         for elem in parser.css("div, p"):
-            class_attr = elem.attributes.get("class", "")
+            class_attr = elem.attributes.get("class", "") or ""
             if "description" in class_attr.lower():
                 return _clean_text(elem.text(strip=True))
         
@@ -540,9 +617,9 @@ class AnnasArchiveService:
         """Extract cover image URL from detail page."""
         # Look for cover image
         for img in parser.css("img"):
-            src = img.attributes.get("src", "")
-            alt = img.attributes.get("alt", "").lower()
-            class_attr = img.attributes.get("class", "").lower()
+            src = img.attributes.get("src", "") or ""
+            alt = (img.attributes.get("alt", "") or "").lower()
+            class_attr = (img.attributes.get("class", "") or "").lower()
             
             # Check if this looks like a cover image
             if src and ("cover" in alt or "cover" in class_attr or "book" in alt):
@@ -550,7 +627,7 @@ class AnnasArchiveService:
         
         # Fallback: first reasonably sized image
         for img in parser.css("img"):
-            src = img.attributes.get("src", "")
+            src = img.attributes.get("src", "") or ""
             if src and not src.startswith("data:") and "icon" not in src.lower():
                 return urllib.parse.urljoin(base_url, src) if not src.startswith("http") else src
         
