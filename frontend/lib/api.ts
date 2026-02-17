@@ -99,6 +99,10 @@ export async function searchBooks(title: string): Promise<{ result: string, book
     return fetchWithAuth(`/books/search?title=${encodeURIComponent(title)}`);
 }
 
+export async function externalSearchBooks(query: string): Promise<{ books: any[], source: string }> {
+    return fetchWithAuth(`/books/external-search?query=${encodeURIComponent(query)}`);
+}
+
 export async function getBook(id: string): Promise<Book> {
     return fetchWithAuth(`/books/${id}`);
 }

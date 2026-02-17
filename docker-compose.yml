@@ -10,7 +10,6 @@ services:
       - bookstore-network
 
   backend:
-    image: ghcr.io/nzouh/bookwebsite-backend:main
     build: .
     container_name: book-backend
     ports:
@@ -24,7 +23,6 @@ services:
       - bookstore-network
 
   frontend:
-    image: ghcr.io/nzouh/bookwebsite-frontend:main
     build: ./frontend
     container_name: book-frontend
     ports:
