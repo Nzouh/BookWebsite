@@ -125,10 +125,8 @@ class DownloadService:
             
             # Update book with final path and status
             await book_crud.update_book_status(job.book_hash, BookStatus.READY)
-            # We also need to update the file_path in books
-            # I'll add a helper for this too if needed, or use the general update
             
-            # Let's use a specialized update for this
+            # Update file_path in the book document
             collection = book_crud.database["books"]
             await collection.update_one(
                 {"md5": job.book_hash},
@@ -136,11 +134,58 @@ class DownloadService:
             )
 
             await job_crud.update_job_file_path(job.id, file_path)
+
+            # Parse the downloaded file into chapters and store them
+            await self._parse_and_store_chapters(job.book_hash, file_path, book_metadata.format)
             
         except Exception as e:
             logger.error(f"Anna download error for book {job.book_hash}: {e}")
             await book_crud.update_book_status(job.book_hash, BookStatus.ERROR, str(e))
             raise e
+
+    async def _parse_and_store_chapters(self, book_hash: str, file_path: str, format_type: str):
+        """Read a downloaded file and parse it into chapters, then store in the book document."""
+        try:
+            # Only attempt parsing for text-extractable formats
+            parseable_formats = {"txt", "epub", "doc", "docx", "fb2"}
+            fmt = (format_type or "").lower().strip()
+            
+            if fmt not in parseable_formats:
+                logger.info(f"Format '{fmt}' not parseable into chapters for book {book_hash}, skipping")
+                return
+
+            # Read the file content
+            import os
+            if not os.path.exists(file_path):
+                logger.warning(f"File not found for chapter parsing: {file_path}")
+                return
+
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+
+            if not content.strip():
+                logger.warning(f"Empty file content for book {book_hash}")
+                return
+
+            # Parse into chapters
+            service = anna.AnnasArchiveService()
+            chapters = service.parse_book_content_to_chapters(content, fmt)
+
+            if chapters:
+                chapter_dicts = [
+                    {"title": ch.title, "content": ch.content, "order": ch.order}
+                    for ch in chapters
+                ]
+                # Find the book by hash and update its chapters
+                book = await book_crud.get_book_by_hash(book_hash)
+                if book:
+                    await book_crud.update_book_chapters(book["_id"], chapter_dicts)
+                    logger.info(f"Parsed {len(chapters)} chapters for book {book_hash}")
+            else:
+                logger.info(f"No chapters parsed for book {book_hash}")
+
+        except Exception as e:
+            logger.error(f"Chapter parsing error for book {book_hash}: {e}")
 
     async def cleanup_failed_books(self):
         cutoff_time = (datetime.now() - timedelta(hours=24)).timestamp()

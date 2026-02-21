@@ -11,8 +11,12 @@ class Book(BaseModel):
     title: str
     author: str
     biography: Optional[str] = None    # book description/summary
+    description: Optional[str] = None  # scraped description (for external books)
     image: Optional[str] = None        # URL to the book cover image (compatibility with old code)
     chapters: list[Chapter] = []       # list of chapters
+
+    # Source tracking
+    source: Optional[str] = "internal" # "internal" (author-created) or "external" (Anna's Archive)
 
     # Anna's Archive Metadata + Download Status
     md5: Optional[str] = None
@@ -21,9 +25,11 @@ class Book(BaseModel):
     size: Optional[str] = None
     language: Optional[str] = None
     publisher: Optional[str] = None
+    year: Optional[str] = None
+    isbn: Optional[str] = None
     cover_url: Optional[str] = None    # New field for consistency
     cover_data: Optional[str] = None   # For fallback covers
-    status: Optional[str] = "ready"    # processing, ready, error
+    status: Optional[str] = "ready"    # imported, processing, ready, error
     error_message: Optional[str] = None
     file_path: Optional[str] = None
     requested_by: Optional[str] = None

@@ -148,3 +148,65 @@ async def delete_failed_books(cutoff_time: float):
         "updated_at": {"$lt": cutoff_time}
     })
     return result.deleted_count
+
+
+async def search_books_local(query: str):
+    """Search books in the local catalogue by title (case-insensitive partial match)."""
+    collection = database["books"]
+    books = []
+    async for book in collection.find(
+        {"title": {"$regex": query, "$options": "i"}},
+        CARD_PROJECTION
+    ):
+        book["_id"] = str(book["_id"])
+        books.append(book)
+    return books
+
+
+async def import_book_from_external(anna_book) -> str:
+    """
+    Import a book from Anna's Archive scraper data into the local catalogue.
+    
+    Args:
+        anna_book: A Book dataclass from annas_archive.py (scraped data)
+    
+    Returns:
+        The string ID of the newly created book document.
+    """
+    from datetime import datetime
+
+    new_book = Book(
+        title=anna_book.title or "Unknown Title",
+        author=anna_book.authors or "Unknown Author",
+        description=anna_book.description or "",
+        biography=anna_book.description or "",
+        image=anna_book.cover_url or None,
+        cover_url=anna_book.cover_url or None,
+        md5=anna_book.hash,
+        download_url=anna_book.url or None,
+        format=anna_book.format or None,
+        size=anna_book.size or None,
+        language=anna_book.language or None,
+        publisher=anna_book.publisher or None,
+        year=anna_book.year or None,
+        isbn=anna_book.isbn or None,
+        source="external",
+        status="imported",
+        created_at=datetime.now().timestamp(),
+        updated_at=datetime.now().timestamp(),
+    )
+    return await create_book(new_book)
+
+
+async def update_book_chapters(book_id: str, chapters: list[dict]):
+    """Update the chapters field of a book after parsing."""
+    from datetime import datetime
+    try:
+        oid = ObjectId(book_id)
+    except Exception:
+        raise ValueError("Must be a valid id format")
+    collection = database["books"]
+    await collection.update_one(
+        {"_id": oid},
+        {"$set": {"chapters": chapters, "status": "ready", "updated_at": datetime.now().timestamp()}}
+    )

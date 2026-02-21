@@ -10,7 +10,30 @@ export interface Book {
     author: string;
     image?: string;
     biography?: string;
+    description?: string;
     chapters?: Chapter[];
+    md5?: string;
+    source?: string;       // "internal" | "external"
+    status?: string;       // "imported" | "processing" | "ready" | "error"
+    format?: string;
+    size?: string;
+    language?: string;
+    publisher?: string;
+    year?: string;
+    isbn?: string;
+    cover_url?: string;
+}
+
+export interface ExternalBook {
+    title: string;
+    authors: string;
+    format: string;
+    size: string;
+    cover_url: string;
+    hash: string;
+    year: string;
+    language: string;
+    url: string;
 }
 
 export interface Chapter {
@@ -74,9 +97,6 @@ export async function register(data: any) {
 }
 
 export async function login(data: any) {
-    // Returns { access_token: string, token_type: string }
-    // Note: Standard login usually doesn't need auth header, but fetchWithAuth is fine here as it just adds if present
-    // However, simpler to use fetch directly to avoid sending old token if any
     const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -90,26 +110,42 @@ export async function login(data: any) {
     return response.json();
 }
 
-// Books
+// Books — Discovery & Search
 export async function getFeaturedBooks(): Promise<Book[]> {
     return fetchWithAuth("/books/featured");
 }
 
-export async function searchBooks(title: string): Promise<{ result: string, books: Book[] }> {
-    return fetchWithAuth(`/books/search?title=${encodeURIComponent(title)}`);
+export async function searchBooks(query: string): Promise<{ local: Book[], external: ExternalBook[] }> {
+    return fetchWithAuth(`/books/search?q=${encodeURIComponent(query)}`);
 }
 
 export async function externalSearchBooks(query: string): Promise<{ books: any[], source: string }> {
     return fetchWithAuth(`/books/external-search?query=${encodeURIComponent(query)}`);
 }
 
+export async function getExternalBookDetails(md5: string): Promise<{ book: any, source: string, local_id: string | null }> {
+    return fetchWithAuth(`/books/external/${md5}`);
+}
+
+export async function importBook(md5: string): Promise<{ id: string, status: string }> {
+    return fetchWithAuth(`/books/import/${md5}`, {
+        method: "POST",
+    });
+}
+
+export async function downloadBook(bookId: string): Promise<{ job_id?: string, status: string }> {
+    return fetchWithAuth(`/books/${bookId}/download`, {
+        method: "POST",
+    });
+}
+
+// Books — CRUD
 export async function getBook(id: string): Promise<Book> {
     return fetchWithAuth(`/books/${id}`);
 }
 
 export async function getBooksBatch(ids: string[]): Promise<Book[]> {
     if (!ids.length) return [];
-    // FastAPI expects repeated query params: ?ids=1&ids=2
     const query = ids.map(id => `ids=${id}`).join("&");
     return fetchWithAuth(`/books/batch?${query}`);
 }
@@ -168,21 +204,6 @@ export async function getMyReaderProfile(): Promise<Reader> {
 }
 
 export async function getReader(id: string): Promise<Reader> {
-    // Assuming the user ID matches the username for now as per backend logic
-    // But wait, the backend `get_reader` takes an _id (ObjectId) OR user_id?
-    // Let's check crud/readers.py. get_reader takes _id (ObjectId).
-    // But wait, get_reader_by_user_id exists.
-    // The frontend needs to know how to get the reader profile.
-    // Currently, the backend doesn't have an endpoint "get my reader profile".
-    // The frontend has the username from the token.
-    // We added `get_reader_by_user_id` in CRUD but did we expose an endpoint for it?
-    // Checking api/readers.py... No. It has `get_reader(_id)` and `list_readers`.
-    // Wait, `get_reader_by_user_id` was added to CRUD, but is it used?
-    // Ah, I missed adding an endpoint to get the CURRENT user's reader profile.
-    // For now, I'll add a TODO to fix this in the backend or I'll implement a workaround if possible.
-    // Actually, I can use the `list_readers` and filter, but that's bad.
-    // I should probably add an endpoint `GET /readers/me` or similar.
-    // I'll proceed with `get_reader` taking an ID for now, and note to fix the backend.
     return fetchWithAuth(`/readers/${id}`);
 }
 

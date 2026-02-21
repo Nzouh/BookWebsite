@@ -13,7 +13,7 @@ export default function Navbar() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
-      router.push(`/books/search?title=${encodeURIComponent(searchTerm)}`);
+      router.push(`/books/search?q=${encodeURIComponent(searchTerm)}`);
     }
   };
 
@@ -28,7 +28,7 @@ export default function Navbar() {
         <form onSubmit={handleSearch} className="search-form">
           <input
             type="text"
-            placeholder="Search books..."
+            placeholder="Search books, authors, topics..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
@@ -36,9 +36,6 @@ export default function Navbar() {
         </form>
 
         <div className="nav-links">
-          <Link href="/books/external-search" className="nav-link">
-            External Search
-          </Link>
           {isAuthenticated ? (
             <>
               <span className="welcome-text">Hi, {user?.sub}</span>
@@ -82,7 +79,7 @@ export default function Navbar() {
           height: 60px;
           object-fit: contain;
           position: relative;
-          top: 10px; /* Moves the logo down without affecting the text title */
+          top: 10px;
           transition: transform 0.2s ease;
         }
         .logo-container:hover .nav-logo {
@@ -95,41 +92,32 @@ export default function Navbar() {
           font-size: 1.5rem;
           color: var(--brown-900);
           position: relative;
-          top: -10px; /* Adjust this value to move the title up or down independently */
+          top: -10px;
         }
         .search-form {
           flex: 1;
-          max-width: 400px;
+          max-width: 450px;
           margin: 0 2rem;
         }
         .search-input {
           width: 100%;
-          padding: 0.5rem 1rem;
-          border: 1px solid var(--brown-100);
-          border-radius: 20px;
+          padding: 0.6rem 1.25rem;
+          border: 2px solid var(--brown-100);
+          border-radius: 24px;
           background-color: var(--cream-light);
           color: var(--brown-900);
+          font-size: 0.95rem;
+          transition: border-color 0.2s, box-shadow 0.2s;
         }
         .search-input:focus {
           outline: none;
-          border-color: var(--brown-500);
+          border-color: var(--brown-400);
+          box-shadow: 0 0 0 3px rgba(141, 110, 99, 0.15);
         }
         .nav-links {
           display: flex;
           gap: 1rem;
           align-items: center;
-        }
-        .nav-link {
-          color: var(--brown-700);
-          text-decoration: none;
-          font-weight: 500;
-          padding: 0.5rem 1rem;
-          border-radius: 6px;
-          transition: background-color 0.2s;
-        }
-        .nav-link:hover {
-          background-color: var(--brown-50);
-          color: var(--brown-900);
         }
         .welcome-text {
           font-weight: 500;
