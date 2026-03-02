@@ -212,3 +212,27 @@ export async function addBookToList(readerId: string, bookId: string, listName: 
         method: "POST"
     });
 }
+
+// One-click download — works without auth
+export async function oneClickDownload(md5: string): Promise<{ job_id?: string, book_id?: string, status: string }> {
+    const response = await fetch(`${API_URL}/books/one-click-download/${md5}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Request failed: ${response.status}`);
+    }
+    return response.json();
+}
+
+// Poll download job status — works without auth
+export async function getDownloadStatus(jobId: string): Promise<{ status: string, progress: number, error_message: string, file_path: string | null }> {
+    const response = await fetch(`${API_URL}/books/download-status/${jobId}`);
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Request failed: ${response.status}`);
+    }
+    return response.json();
+}
+

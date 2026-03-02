@@ -37,3 +37,14 @@ async def update_job_file_path(job_id: str, file_path: str):
         {"_id": ObjectId(job_id)},
         {"$set": {"file_path": file_path, "updated_at": datetime.now().timestamp()}}
     )
+
+async def get_job(job_id: str):
+    """Fetch a single download job by ID."""
+    try:
+        oid = ObjectId(job_id)
+    except Exception:
+        return None
+    job = await database[COLLECTION].find_one({"_id": oid})
+    if job:
+        job["_id"] = str(job["_id"])
+    return job

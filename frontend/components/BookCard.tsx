@@ -2,20 +2,20 @@ import Link from "next/link";
 import { Book } from "../lib/api";
 
 export default function BookCard({ book }: { book: Book }) {
-    // Use a placeholder if no image is provided
-    const imageUrl = book.image || "https://placehold.co/200x300?text=No+Cover";
+  // Use a placeholder if no image is provided
+  const imageUrl = book.image || book.cover_url || "https://placehold.co/200x300?text=No+Cover";
 
-    return (
-        <Link href={`/books/${book._id}`} className="book-card">
-            <div className="image-wrapper">
-                <img src={imageUrl} alt={book.title} />
-            </div>
-            <div className="info">
-                <h3 className="title">{book.title}</h3>
-                <p className="author">{book.author}</p>
-            </div>
+  return (
+    <Link href={`/books/${book._id}`} className="book-card">
+      <div className="image-wrapper">
+        <img src={imageUrl} alt={book.title} />
+      </div>
+      <div className="info">
+        <h3 className="title">{book.title}</h3>
+        <p className="author">{book.author}</p>
+      </div>
 
-            <style jsx>{`
+      <style jsx>{`
         .book-card {
           display: block;
           background-color: var(--white);
@@ -58,6 +58,6 @@ export default function BookCard({ book }: { book: Book }) {
           color: var(--brown-500);
         }
       `}</style>
-        </Link>
-    );
+    </Link>
+  );
 }

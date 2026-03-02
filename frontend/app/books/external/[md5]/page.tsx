@@ -1,21 +1,24 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getExternalBookDetails, importBook } from "@/lib/api";
-import { useAuth } from "@/lib/AuthContext";
+import { getExternalBookDetails, oneClickDownload } from "@/lib/api";
+import DownloadProgress from "@/components/DownloadProgress";
 import Link from "next/link";
 
 export default function ExternalBookDetailPage({ params }: { params: Promise<{ md5: string }> }) {
     const { md5 } = use(params);
-    const { isAuthenticated } = useAuth();
     const router = useRouter();
     const [book, setBook] = useState<any>(null);
     const [source, setSource] = useState<string>("");
     const [localId, setLocalId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
-    const [importing, setImporting] = useState(false);
     const [error, setError] = useState("");
+
+    // Download state
+    const [downloading, setDownloading] = useState(false);
+    const [jobId, setJobId] = useState<string | null>(null);
+    const [bookId, setBookId] = useState<string | null>(null);
 
     useEffect(() => {
         async function fetchData() {
@@ -34,20 +37,39 @@ export default function ExternalBookDetailPage({ params }: { params: Promise<{ m
         fetchData();
     }, [md5]);
 
-    const handleImport = async () => {
-        if (!isAuthenticated) {
-            router.push("/login");
-            return;
-        }
-        setImporting(true);
+    const handleDownload = async () => {
+        setDownloading(true);
+        setError("");
         try {
-            const result = await importBook(md5);
-            router.push(`/books/${result.id}`);
+            const result = await oneClickDownload(md5);
+            if (result.status === "already_ready" && result.book_id) {
+                router.push(`/books/${result.book_id}`);
+                return;
+            }
+            if (result.job_id) {
+                setJobId(result.job_id);
+                setBookId(result.book_id || null);
+            } else if (result.book_id) {
+                // Processing — no job id, but book exists
+                setBookId(result.book_id);
+            }
         } catch (err: any) {
-            setError(err.message || "Failed to import book");
-            setImporting(false);
+            setError(err.message || "Failed to start download");
+            setDownloading(false);
         }
     };
+
+    const handleRetry = () => {
+        setJobId(null);
+        setBookId(null);
+        setDownloading(false);
+        setError("");
+        handleDownload();
+    };
+
+    const handleComplete = useCallback(() => {
+        // Progress component will show "Read Now" link
+    }, []);
 
     if (loading) {
         return (
@@ -75,7 +97,7 @@ export default function ExternalBookDetailPage({ params }: { params: Promise<{ m
         );
     }
 
-    if (error) {
+    if (error && !book) {
         return (
             <div className="error-container">
                 <h2>Something went wrong</h2>
@@ -147,15 +169,40 @@ export default function ExternalBookDetailPage({ params }: { params: Promise<{ m
                         </div>
                     )}
 
-                    <div className="actions">
-                        <button
-                            onClick={handleImport}
-                            disabled={importing}
-                            className="btn-import"
-                        >
-                            {importing ? "Adding to Library..." : "📥 Add to My Library"}
-                        </button>
-                    </div>
+                    {/* Download action area */}
+                    {!jobId && !downloading && (
+                        <div className="actions">
+                            <button
+                                onClick={handleDownload}
+                                className="btn-download"
+                            >
+                                ⬇️ Download & Read
+                            </button>
+                        </div>
+                    )}
+
+                    {downloading && !jobId && !error && (
+                        <div className="initializing">
+                            <div className="mini-spinner"></div>
+                            <span>Starting download...</span>
+                        </div>
+                    )}
+
+                    {error && !jobId && (
+                        <div className="error-inline">
+                            <p>❌ {error}</p>
+                            <button onClick={handleRetry} className="btn-retry-inline">🔄 Try Again</button>
+                        </div>
+                    )}
+
+                    {jobId && bookId && (
+                        <DownloadProgress
+                            jobId={jobId}
+                            bookId={bookId}
+                            onComplete={handleComplete}
+                            onRetry={handleRetry}
+                        />
+                    )}
 
                     <p className="source-note">
                         Source: Anna&apos;s Archive
@@ -264,7 +311,7 @@ export default function ExternalBookDetailPage({ params }: { params: Promise<{ m
                     display: flex;
                     gap: 1rem;
                 }
-                .btn-import {
+                .btn-download {
                     padding: 0.9rem 2rem;
                     font-size: 1.05rem;
                     font-weight: 600;
@@ -276,13 +323,55 @@ export default function ExternalBookDetailPage({ params }: { params: Promise<{ m
                     transition: all 0.2s;
                     box-shadow: 0 2px 8px rgba(62, 39, 35, 0.2);
                 }
-                .btn-import:hover:not(:disabled) {
+                .btn-download:hover {
                     transform: translateY(-2px);
                     box-shadow: 0 4px 16px rgba(62, 39, 35, 0.3);
                 }
-                .btn-import:disabled {
-                    opacity: 0.6;
-                    cursor: not-allowed;
+                .initializing {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    margin-top: 1.5rem;
+                    padding: 1rem 1.25rem;
+                    background: var(--brown-50, #faf5f0);
+                    border-radius: 8px;
+                    color: var(--brown-700);
+                    font-weight: 500;
+                }
+                .mini-spinner {
+                    width: 20px;
+                    height: 20px;
+                    border: 2.5px solid var(--brown-200);
+                    border-top-color: var(--brown-600);
+                    border-radius: 50%;
+                    animation: spin 0.8s linear infinite;
+                }
+                @keyframes spin { to { transform: rotate(360deg); } }
+                .error-inline {
+                    margin-top: 1.5rem;
+                    padding: 1rem 1.25rem;
+                    background: #fef2f2;
+                    border: 1px solid #fecaca;
+                    border-radius: 8px;
+                }
+                .error-inline p {
+                    color: #991b1b;
+                    font-size: 0.9rem;
+                    margin-bottom: 0.75rem;
+                }
+                .btn-retry-inline {
+                    padding: 0.45rem 1rem;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    background: white;
+                    color: var(--brown-800);
+                    border: 2px solid var(--brown-300);
+                    border-radius: 6px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .btn-retry-inline:hover {
+                    background: var(--brown-50, #efebe9);
                 }
                 .source-note {
                     margin-top: 1.5rem;

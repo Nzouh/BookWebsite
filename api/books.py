@@ -11,7 +11,7 @@ from app.crud.authors import get_author_by_name, add_book_to_author, get_author_
 from app.model.book import Book
 from api.auth import get_current_user
 from app.services.annas_archive import AnnasArchiveService, find_books, get_book_metadata
-from app.crud.download_jobs import create_job
+from app.crud.download_jobs import create_job, get_job
 from app.model.download_job import DownloadJob
 
 router = APIRouter(prefix="/books", tags=["Books"])
@@ -149,6 +149,58 @@ async def download_book(book_id: str, current_user: dict = Depends(get_current_u
     job_id = await create_job(job)
 
     return {"job_id": job_id, "status": "queued"}
+
+
+# ─── One-Click Download (No Auth) ────────────────────────────────────
+
+@router.post("/one-click-download/{md5}")
+async def one_click_download(md5: str):
+    """
+    Import + download an external book in a single step.
+    No auth required — the downloaded book becomes available to all users.
+    """
+    # 1. Check if already in local catalogue and ready
+    existing = await get_book_by_hash(md5)
+    if existing:
+        if existing.get("status") == "ready" and existing.get("chapters"):
+            return {"status": "already_ready", "book_id": existing["_id"]}
+        # Already imported but not ready — create a download job if not already processing
+        if existing.get("status") not in ("processing",):
+            job = DownloadJob(book_hash=md5)
+            job_id = await create_job(job)
+            return {"job_id": job_id, "book_id": existing["_id"], "status": "queued"}
+        return {"status": "processing", "book_id": existing["_id"]}
+
+    # 2. Fetch metadata from Anna's Archive and import
+    details = await _anna_service.get_book_details(md5)
+    if not details:
+        raise HTTPException(status_code=404, detail="Book not found on Anna's Archive")
+
+    book_id = await import_book_from_external(details)
+
+    # 3. Create a download job
+    job = DownloadJob(book_hash=md5)
+    job_id = await create_job(job)
+
+    return {"job_id": job_id, "book_id": book_id, "status": "queued"}
+
+
+@router.get("/download-status/{job_id}")
+async def download_status(job_id: str):
+    """
+    Poll the status of a download job.
+    Returns progress percentage and current status.
+    """
+    job = await get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return {
+        "status": job.get("status", "unknown"),
+        "progress": job.get("progress", 0),
+        "error_message": job.get("error_message", ""),
+        "file_path": job.get("file_path"),
+    }
 
 
 # ─── Batch & Individual Book Access ──────────────────────────────────

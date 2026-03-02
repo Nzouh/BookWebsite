@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useCallback } from "react";
 import Link from "next/link";
 import { getBook, Book, addBookToList, getMyReaderProfile, downloadBook } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
+import DownloadProgress from "@/components/DownloadProgress";
 
 export default function BookDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -13,6 +14,7 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
   const [readerId, setReaderId] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadStatus, setDownloadStatus] = useState("");
+  const [jobId, setJobId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -61,14 +63,40 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
       const result = await downloadBook(id);
       if (result.status === "already_ready") {
         setDownloadStatus("Book is already ready to read!");
+        setDownloading(false);
+        // Refresh the book data to show chapters
+        const bookData = await getBook(id);
+        setBook(bookData);
+      } else if (result.job_id) {
+        setJobId(result.job_id);
+        setDownloadStatus("");
       } else {
         setDownloadStatus("Download queued! Check back soon for chapters.");
+        setDownloading(false);
       }
     } catch (err: any) {
       setDownloadStatus(err.message || "Download failed");
-    } finally {
       setDownloading(false);
     }
+  };
+
+  const handleDownloadComplete = useCallback(async () => {
+    // Refresh book data to show chapters
+    try {
+      const bookData = await getBook(id);
+      setBook(bookData);
+      setDownloading(false);
+      setJobId(null);
+    } catch (e) {
+      console.error("Failed to refresh book data", e);
+    }
+  }, [id]);
+
+  const handleRetry = () => {
+    setJobId(null);
+    setDownloading(false);
+    setDownloadStatus("");
+    handleDownload();
   };
 
   if (loading) return <div>Loading book details...</div>;
@@ -101,17 +129,16 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
 
           <div className="actions">
             {/* Download button for imported but not-yet-downloaded books */}
-            {isImported && (
+            {isImported && !downloading && !jobId && (
               <button
                 onClick={handleDownload}
-                disabled={downloading}
                 className="btn btn-download"
               >
-                {downloading ? "⏳ Processing..." : "⬇️ Download & Read"}
+                ⬇️ Download & Read
               </button>
             )}
 
-            {isProcessing && (
+            {isProcessing && !jobId && (
               <div className="status-processing">
                 <span className="pulse">⏳</span> Downloading... check back soon
               </div>
@@ -128,6 +155,16 @@ export default function BookDetailPage({ params }: { params: Promise<{ id: strin
 
           {downloadStatus && (
             <p className="download-feedback">{downloadStatus}</p>
+          )}
+
+          {/* Show progress bar when downloading */}
+          {jobId && (
+            <DownloadProgress
+              jobId={jobId}
+              bookId={id}
+              onComplete={handleDownloadComplete}
+              onRetry={handleRetry}
+            />
           )}
         </div>
       </div>
